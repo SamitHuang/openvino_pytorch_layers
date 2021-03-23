@@ -6,6 +6,8 @@
 #include <details/ie_exception.hpp>
 #include <ie_layouts.h>
 #include "ie_parallel.hpp"
+//#include <opencv2/opencv.hpp>
+#include <math.h> //TODO: use MKL math lib instead
 
 using namespace TemplateExtension;
 
@@ -31,11 +33,11 @@ MultinomialImpl::MultinomialImpl(const std::shared_ptr<ngraph::Node> &node) {
         inpShape = castedNode->get_input_shape(0);
         outShape = castedNode->get_output_shape(0); 
         // sample_size = castedNode->sample_size; 
+
     } catch (InferenceEngine::details::InferenceEngineException& ex) {
         error = ex.what();
     }
-    printf("=> Debug MulImpl inpShape");
-    //printf("=> Debug MulImpl inpShape %d %d, outShape %d %d \r\n", inpShape[0], inpShape[1], outShape[0], outShape[1]);
+    //printf("=> Debug MulImpl inpShape");
 }
 //! [cpu_implementation:ctor]
 
@@ -47,7 +49,6 @@ InferenceEngine::StatusCode MultinomialImpl::getSupportedConfigurations(std::vec
      InferenceEngine::SizeVector order = {0, 1}; //TODO: what is it? check correctness. ----------------------------> <---------------------
      
      //printf("=> Debug getSupportedConfig 0\r\n");
-     printf("Flag 1\r\n"); 
      // Allow any offset before data
      size_t offset((std::numeric_limits<size_t>::max)());
      //printf("=> Debug inpShape %d, %d\r\n", inpShape[0], inpShape[1]);
@@ -58,7 +59,6 @@ InferenceEngine::StatusCode MultinomialImpl::getSupportedConfigurations(std::vec
      inpConf.desc = InferenceEngine::TensorDesc(InferenceEngine::Precision::FP32, inpShape, InferenceEngine::Layout::NC);
      inDataConfig.push_back(inpConf);
 
-     printf("Flag 4\r\n"); 
      //printf("=> Debug outShape %d, %d\r\n", outShape[0], outShape[1]); //wrong
      // Output shape. TODO: change a.. 
      InferenceEngine::DataConfig outConf;
@@ -72,7 +72,7 @@ InferenceEngine::StatusCode MultinomialImpl::getSupportedConfigurations(std::vec
 
      conf.push_back(layerConfig);
     
-     printf("=> getSupportedConfig 2\r\n");
+     //printf("=> getSupportedConfig 2\r\n");
 
      return InferenceEngine::StatusCode::OK;
 }
@@ -80,7 +80,7 @@ InferenceEngine::StatusCode MultinomialImpl::getSupportedConfigurations(std::vec
 
 //! [cpu_implementation:init]
 InferenceEngine::StatusCode MultinomialImpl::init(InferenceEngine::LayerConfig &config, InferenceEngine::ResponseDesc *resp) noexcept {
-    printf("start init\r\n");
+    //printf("start init\r\n");
     try {
         // TODO: change a...
         if (config.inConfs.size() != 1 || config.outConfs.size() != 1) {
@@ -103,7 +103,7 @@ InferenceEngine::StatusCode MultinomialImpl::init(InferenceEngine::LayerConfig &
         return InferenceEngine::GENERAL_ERROR;
     }
 
-    printf("=> Debug init done \r\n");
+    //printf("=> Debug init done \r\n");
     return InferenceEngine::OK;
 }
 //! [cpu_implementation:init]
@@ -121,24 +121,25 @@ InferenceEngine::StatusCode MultinomialImpl::execute(std::vector<InferenceEngine
 
     const int batch     = inpDims[0]; //batch_size
     const int num_classes  = inpDims[1]; 
-    //const int sampel_size = outDims[1];
-    // navie test, pick the largest prob for each sample in batch 
+
+    //TODO: no need to creat the rng in every inference. create it globally when the network loaded. 
+    //The seed for rng should fixed once c++ build. claim it globally should be fine. 
+    //cv::RNG rng;   
+
     for (int b=0; b<batch; b++){
-        int row_bias = b*num_classes;
-        float max_prob = -100.0;
-        int argmax_res = -1;
+        int offset = b*num_classes;  
+        float maxi = -std::numeric_limits<float>::infinity(); 
         for (int k=0; k<num_classes; k++){
-            float prob = inpData[row_bias+k];
-            printf("===> batch %d, class %d, prob %f", b, k, prob);
-            if (prob > max_prob){ 
-                max_prob = prob;
-                argmax_res = k;
+            //float prob = inpData[row_bias+k];
+            double u = rng.uniform((double)0, (double)1);
+            // TODO: use mkl math log
+            float sum_g_a = inpData[offset+k] + (-log(-log(u))); //log is natural. get gumbel dist. samples from uniform. and add with input
+            if (sum_g_a > maxi){
+                maxi = sum_g_a;
+                outData[b] = k;
             }
         } 
-        outData[b] = argmax_res; 
-        printf("===> batch %d, argmax class %d", b, outData[b]);
     }
-
     return InferenceEngine::OK;
 }
 //! [cpu_implementation:execute]

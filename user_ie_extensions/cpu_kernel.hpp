@@ -6,6 +6,7 @@
 
 #include <ie_iextension.h>
 #include <ngraph/ngraph.hpp>
+#include <opencv2/opencv.hpp>
 
 namespace TemplateExtension {
 
@@ -75,6 +76,7 @@ private:
     ngraph::Shape inpShape;
     ngraph::Shape outShape;
     std::string error;
+    cv::RNG rng;
 };
 
 
