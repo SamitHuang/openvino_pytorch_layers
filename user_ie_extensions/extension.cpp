@@ -31,9 +31,12 @@ void Extension::GetVersion(const InferenceEngine::Version *&versionInfo) const n
 std::map<std::string, ngraph::OpSet> Extension::getOpSets() {
     std::map<std::string, ngraph::OpSet> opsets;
     ngraph::OpSet opset;
+    //TODO: add your op
     opset.insert<UnpoolOp>();
     opset.insert<FFTOp>();
     opset.insert<GridSampleOp>();
+    opset.insert<MultinomialOp>();
+
     opsets["extension"] = opset;
     return opsets;
 }
@@ -41,9 +44,12 @@ std::map<std::string, ngraph::OpSet> Extension::getOpSets() {
 
 //! [extension:getImplTypes]
 std::vector<std::string> Extension::getImplTypes(const std::shared_ptr<ngraph::Node> &node) {
+    //TODO: add your op
     if (std::dynamic_pointer_cast<UnpoolOp>(node) ||
         std::dynamic_pointer_cast<GridSampleOp>(node) ||
-        std::dynamic_pointer_cast<FFTOp>(node)) {
+        std::dynamic_pointer_cast<FFTOp>(node) ||
+        std::dynamic_pointer_cast<MultinomialOp>(node) 
+        ) {
         return {"CPU"};
     }
     return {};
@@ -60,6 +66,9 @@ InferenceEngine::ILayerImpl::Ptr Extension::getImplementation(const std::shared_
     }
     if (std::dynamic_pointer_cast<GridSampleOp>(node) && implType == "CPU") {
         return std::make_shared<GridSampleImpl>(node);
+    }
+    if (std::dynamic_pointer_cast<MultinomialOp>(node) && implType == "CPU") {
+        return std::make_shared<MultinomialImpl>(node);
     }
     return nullptr;
 }
